@@ -18,9 +18,10 @@ class InteractiveBezierCurvePanel : JPanel() {
         mutableListOf(
             Vector2d(300.0, -750.0),
             Vector2d(300.0, -750.0),
-            Vector2d(300.0, 750.0),
+            Vector2d(-804.0, 1308.0),
             Vector2d(450.0, 300.0),
         ),
+        1000.0,
         1000.0
     )
     private var splineSprite : DrawableHermiteSpline = DrawableHermiteSpline(hermiteData, this);
@@ -35,7 +36,7 @@ class InteractiveBezierCurvePanel : JPanel() {
             repaint()
         }.start()
 
-        splineGraph.x = 900
+        splineGraph.x = 20
         splineGraph.y = 20
         splineGraph.height = 80
         splineGraph.width = 960
@@ -47,6 +48,10 @@ class InteractiveBezierCurvePanel : JPanel() {
         val g2d = g as Graphics2D
 
         splineSprite.draw(t, g2d)
+
+        splineGraph.draw(t, g)
+
+        g2d.drawString(hermiteData.totalTime().toString(), 10, 10);
     }
 }
 

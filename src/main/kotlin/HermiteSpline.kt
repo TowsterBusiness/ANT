@@ -4,78 +4,116 @@ import java.util.Vector
 import kotlin.math.floor
 import kotlin.math.max
 
-data class HermiteSpline(var pos:MutableList<Vector2d>, var vel:MutableList<Vector2d>, var maxVel : Double) {
-    val tks: MutableList<Double> = mutableListOf()
+data class HermiteSpline(var pos:MutableList<Vector2d>, var vel:MutableList<Vector2d>, var maxVel : Double, var maxAccel : Double) {
+    var tks: MutableList<Double> = mutableListOf()
 
     init {
         calculateSplineTimes()
     }
 
     fun calculateSplineTimes() {
+
+        System.out.println(velAtTime(0.0088657494, 2, 0.25).magnitude());
+
+        tks = mutableListOf()
+        System.out.println(pos)
+        System.out.println(vel)
         for (tkIndex in 0..<pos.size - 1) {
             // Finds the maximum of the function in the current tk value
             var localTk = 0.25
             for (tkLoop in 0..4) {
                 // Variable that handles the maximum velocities that it finds. Starts off with the initial and final velocities
-                var maxVelPoint: Double = -1.0
-                var maxXPoint: Double = -1.0
-                // Creates 10 points that the gradient descent algorithm is being used for
-                for (gradientDecentPoints in 0..100) {
-                    var gradientDescent = GradientDescent { t -> velAtTime(t, tkIndex, localTk).magnitude() }
-                    gradientDescent.x = localTk * gradientDecentPoints / 100.0
-                    gradientDescent.gamma = 0.0000001
+                var anchorX = -1.0
 
-                    var isBroken = false;
-                    // Runs the gradient descent algorithm 10 times while checking if it exceeded the bounds of the interval
-                    for (gradientDecentUpdateIndex in 0..<20) {
-                        gradientDescent.update()
-                        if (gradientDescent.x < 0 || gradientDescent.x > localTk) {
-                            isBroken = true
-                            break;
-                        }
+                var gradientDescentMax = GradientDescent { t -> velAtTime(t, tkIndex, localTk).magnitude() }
+                gradientDescentMax.gamma = 0.00001 * localTk
+                gradientDescentMax.eval(20, 0.0, localTk)
 
-                    }
-                    if (gradientDescent.getY() > maxVelPoint && !isBroken) {
-                        maxVelPoint = gradientDescent.getY()
-                        maxXPoint = gradientDescent.x
-                    }
+                anchorX = gradientDescentMax.x
 
-                }
-
-                if (maxVelPoint == -1.0) {
+                if (gradientDescentMax.x == Double.NEGATIVE_INFINITY) {
                     System.out.println("Finding Low Point")
-                    var gradientDescent = GradientDescent { t -> velAtTime(t, tkIndex, localTk).magnitude() }
-                    gradientDescent.x = 0.5
-                    gradientDescent.gamma = 0.0000001
-                    gradientDescent.findMax = false
+                    var gradientDescentMin = GradientDescent { t -> velAtTime(t, tkIndex, localTk).magnitude() }
+                    gradientDescentMin.x = 0.5
+                    gradientDescentMin.gamma = 0.00001 * localTk
+                    gradientDescentMin.findMax = false
 
                     // Runs the gradient descent algorithm 10 times while checking if it exceeded the bounds of the interval
                     for (gradientDecentUpdateIndex in 0..<20) {
-                        gradientDescent.update()
-
+                        gradientDescentMin.update()
                     }
 
-                    maxVelPoint = gradientDescent.getY()
-                    maxXPoint = gradientDescent.x
+                    anchorX = gradientDescentMin.x
+
+                    System.out.println("Max Vel Point: ${gradientDescentMin.getY()}")
+                } else {
+                    System.out.println("Max Vel Point: ${gradientDescentMax.getY()}")
                 }
 
-                System.out.println("Max Vel Point: " + maxVelPoint)
-                System.out.println("Max X Point  : " + maxXPoint)
-                System.out.println("Local Tk     : " + localTk)
+                System.out.println("Max X Point  : $anchorX")
+                System.out.println("Local Tk     : $localTk")
 
                 // Finding the Newton update
-                var newtonsMethod = NewtonsMethod { tk -> velAtTime(maxXPoint, tkIndex, tk).magnitude() }
+                var newtonsMethod = NewtonsMethod { tk -> velAtTime(anchorX, tkIndex, tk).magnitude() }
                 newtonsMethod.x = localTk
                 newtonsMethod.yEnd = maxVel
                 System.out.println("f            : " + newtonsMethod.f(localTk))
                 System.out.println("d            : " + newtonsMethod.d(localTk))
                 newtonsMethod.update()
                 localTk = newtonsMethod.x
-                System.out.println("Tk Point     : " + localTk)
+                System.out.println("Tk Point     : $localTk")
             }
+
+            var localTkAccel = 0.25
+            for (tkLoop in 0..20) {
+                // Variable that handles the maximum velocities that it finds. Starts off with the initial and final velocities
+                var anchorX = -1.0
+
+                var gradientDescentMax = GradientDescent { t -> accelerationAtTime(t, tkIndex, localTkAccel).magnitude() }
+                gradientDescentMax.gamma = 0.00001 * localTkAccel
+                gradientDescentMax.eval(20, 0.0, localTkAccel)
+
+                val critAccel = gradientDescentMax.f(gradientDescentMax.x)
+                val startAccel = gradientDescentMax.f(0.0)
+                val endAccel = gradientDescentMax.f(localTkAccel)
+
+                if (critAccel > startAccel) {
+                    if (critAccel > endAccel) {
+                        anchorX = gradientDescentMax.x
+                    } else {
+                        anchorX = localTkAccel
+                    }
+                } else {
+                    if (startAccel > endAccel) {
+                        anchorX = 0.0
+                    } else {
+                        anchorX = localTkAccel
+                    }
+                }
+
+                if (gradientDescentMax.f(anchorX) < maxAccel && Math.abs(gradientDescentMax.f(anchorX) - maxAccel) < 1) break;
+
+                System.out.println("Max X Point A: $anchorX")
+                System.out.println("Local Tk    A: $localTkAccel")
+
+                // Finding the Newton update
+                var newtonsMethod = NewtonsMethod { tk -> accelerationAtTime(anchorX, tkIndex, tk).magnitude() }
+                newtonsMethod.x = localTkAccel
+                newtonsMethod.yEnd = maxAccel
+                System.out.println("f           A: " + newtonsMethod.f(localTkAccel))
+                System.out.println("d           A: " + newtonsMethod.d(localTkAccel))
+                newtonsMethod.update()
+                localTkAccel = newtonsMethod.x
+                System.out.println("Tk Point    A: $localTkAccel")
+            }
+
+
+
             System.out.println("==== New TK ====")
-            tks.add(localTk)
+            tks.add(Math.max(localTk, localTkAccel))
         }
+
+        System.out.println(totalTime())
     }
 
     fun totalTime(): Double {
@@ -159,8 +197,8 @@ data class HermiteSpline(var pos:MutableList<Vector2d>, var vel:MutableList<Vect
 
         val t2 = t * t
 
-        val x = (6 * t2 - 6 * t) * (pos1.x - pos2.x) / tk + (3 * t2 - 4 * t + 1) * vel1.x + (3 * t2 - 2 * t) * vel2.x
-        val y = (6 * t2 - 6 * t) * (pos1.y - pos2.y) / tk + (3 * t2 - 4 * t + 1) * vel1.y + (3 * t2 - 2 * t) * vel2.y
+        val x = pos1.x / tk * (6 * t2 - 6 * t) + vel1.x * (3 * t2 - 4 * t + 1) + vel2.x * (3 * t2 - 2 * t) + pos2.x / tk * (6 * t - 6 * t2)
+        val y = pos1.y / tk * (6 * t2 - 6 * t) + vel1.y * (3 * t2 - 4 * t + 1) + vel2.y * (3 * t2 - 2 * t) + pos2.y / tk * (6 * t - 6 * t2)
 
         return Vector2d(x, y)
     }
@@ -201,7 +239,22 @@ data class HermiteSpline(var pos:MutableList<Vector2d>, var vel:MutableList<Vect
 
         return Vector2d(x, y)
     }
+
+    fun accelerationAtTime(tRaw: Double, index: Int, tk: Double): Vector2d {
+        val t = tRaw / tk
+
+        val tk2 = tk * tk
+
+        val pos1: Vector2d = pos[index]
+        val pos2: Vector2d = pos[index + 1]
+        val vel1: Vector2d = vel[index]
+        val vel2: Vector2d = vel[index + 1]
+
+        val x =
+            (12 * t - 6) * pos1.x / tk2 + (6 * t - 4) * vel1.x / tk + (6 * t - 2) * vel2.x / tk + (6 - 12 * t) * pos2.x / tk2
+        val y =
+            (12 * t - 6) * pos1.y / tk2 + (6 * t - 4) * vel1.y / tk + (6 * t - 2) * vel2.y / tk + (6 - 12 * t) * pos2.y / tk2
+
+        return Vector2d(x, y)
+    }
 }
-
-
-
