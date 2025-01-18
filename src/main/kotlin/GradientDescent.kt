@@ -64,5 +64,4 @@ class GradientDescent(var f : (Double) -> Double) {
     fun d(x : Double) : Double {
         return (f(x) - f(x - dX)) / dX
     }
-
 }

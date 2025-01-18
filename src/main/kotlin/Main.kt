@@ -1,10 +1,8 @@
 import java.awt.*
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
-import java.awt.geom.Path2D
 import javax.swing.JFrame
 import javax.swing.JPanel
 import javax.swing.Timer
+
 
 class InteractiveBezierCurvePanel : JPanel() {
 
@@ -52,6 +50,17 @@ class InteractiveBezierCurvePanel : JPanel() {
         splineGraph.draw(t, g)
 
         g2d.drawString(hermiteData.totalTime().toString(), 10, 10);
+
+        var pos = hermiteData.posAtTime(t)
+        var angle = hermiteData.velAtTime(t).angle()
+        g2d.color = Color(255, 75, 75)
+        val rect2 = Rectangle(-20, -20, 40, 40)
+        g2d.translate(pos.x.toInt(), pos.y.toInt())
+        g2d.rotate(angle)
+        g2d.draw(rect2)
+        g2d.fill(rect2)
+
+
     }
 }
 

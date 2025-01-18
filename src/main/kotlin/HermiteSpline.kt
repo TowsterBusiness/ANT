@@ -258,3 +258,4 @@ data class HermiteSpline(var pos:MutableList<Vector2d>, var vel:MutableList<Vect
         return Vector2d(x, y)
     }
 }
+
